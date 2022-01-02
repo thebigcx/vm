@@ -17,4 +17,3 @@ $(TARG): $(OBJ)
 
 clean:
 	rm $(TARG) $(OBJ)
-	@rmdir $(shell dirname $(TARG))

@@ -27,6 +27,8 @@ enum TOKEN
     T_JS,
     T_JNS,
     T_JMP,
+    T_DIRECT,
+    T_STRLIT,
     T_LBL,
     T_COMMA,
     T_MEM,
@@ -83,9 +85,16 @@ struct token next()
 {
     char c;
     while (isspace((c = fgetc(input))));
-    printf("%c\n", c);
 
-    if (c == '(')
+    if (c == '.')
+    {
+        char str[32];
+        size_t strl = 0;
+        while ((c = fgetc(input)) != EOF && (isalnum(c) || c == '_')) str[strl++] = c;
+
+        return (struct token) { .type = T_DIRECT, .sval = strdup(str) };
+    }
+    else if (c == '(')
     {
         struct token t = next();
         t.type = T_MEM;
@@ -103,7 +112,7 @@ struct token next()
         ungetc(c, input);
         if (isalpha(c) || c == '_')
         {
-            while ((c = fgetc(input)) != EOF && (isalpha(c) || c == '_')) str[strl++] = c;
+            while ((c = fgetc(input)) != EOF && (isalnum(c) || c == '_')) str[strl++] = c;
             str[strl] = 0;
             
             ungetc(c, input);
@@ -115,9 +124,15 @@ struct token next()
                 .pos  = ftell(output)
             };
 
-            printf("str: %s\n", str);
-
             return (struct token) { .type = T_IMM, .ival = 0 };
+        }
+        else if (c == '\'')
+        {
+            fgetc(input);
+            c = fgetc(input);
+            fgetc(input);
+
+            return (struct token) { .type = T_IMM, .ival = c };
         }
         else
         {
@@ -138,6 +153,16 @@ struct token next()
         int num = c - '0';
         return (struct token) { .type = T_REG, .ival = num };
     }
+    else if (c == '"')
+    {
+        char str[32];
+        size_t strl = 0;
+
+        while ((c = fgetc(input)) != EOF && c != '"') str[strl++] = c;
+        fgetc(input);
+
+        return (struct token) { .type = T_STRLIT, .sval = strdup(str) };
+    }
     else
     {
         char str[32];
@@ -146,17 +171,22 @@ struct token next()
         {
             str[strl++] = c;
         }
-        while ((c = fgetc(input)) != EOF && isalpha(c));
+        while ((c = fgetc(input)) != EOF && isalnum(c));
 
         str[strl] = 0;
     
-        for (int i = 0; i < sizeof(insts) / sizeof(insts[0]); i++)
+        if (c == ':')
         {
-            if (insts[i] && !strcmp(insts[i], str))
-                return (struct token) { .type = i };
+            return (struct token) { .type = T_LBL, .sval = strdup(str), .ival = ftell(output) };
         }
-
-        return (struct token) { .type = T_LBL, .sval = strdup(str), .ival = ftell(output) };
+        else
+        {
+            for (int i = 0; i < sizeof(insts) / sizeof(insts[0]); i++)
+            {
+                if (insts[i] && !strcmp(insts[i], str))
+                    return (struct token) { .type = i };
+            }
+        }
     }
 }
 
@@ -219,20 +249,24 @@ int main(int argc, char **argv)
     while (!eof())
     {
         struct token t = next();
+        printf("%d\n", t.type);
         switch (t.type)
         {
             case T_LDR:
             {
+                fputc(0, output);
                 struct token src = next();
-                expect(T_COMMA);
-                struct token dst = next();
-                
+                fseek(output, -1, SEEK_CUR);
+
                 if (src.type == T_IMM)
                     fputc(OP_LDRIMM, output);
                 else if (src.type == T_MEM)
                     fputc(OP_LDRMEM, output);
-                
+
                 fputc(src.ival, output);
+
+                expect(T_COMMA);
+                struct token dst = next();
                 fputc(dst.ival, output);
                 break;
             }
@@ -265,6 +299,18 @@ int main(int argc, char **argv)
                     .name = strdup(t.sval),
                     .pos  = ftell(output)
                 };
+                break;
+            }
+
+            case T_DIRECT:
+            {
+                printf("%s\n", t.sval);
+                if (!strcmp(t.sval, "string"))
+                {
+                    struct token t = next();
+                    fprintf(output, "%s", t.sval);
+                    fputc(0, output);
+                }
                 break;
             }
         }

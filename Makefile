@@ -5,3 +5,4 @@ all:
 clean:
 	@$(MAKE) -C vm clean
 	@$(MAKE) -C asm clean
+	@rmdir dist

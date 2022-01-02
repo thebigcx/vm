@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include <arch.h>
 
@@ -59,6 +60,20 @@ uint8_t flags = 0;
 #define ZF (1 << 0)
 #define SF (1 << 1)
 
+//#define DEBUG
+
+void info(const char *format, ...)
+{
+#ifdef DEBUG
+    va_list list;
+    va_start(list, format);
+    vprintf(format, list);
+    va_end(list);
+#else
+    (void)format;
+#endif
+}
+
 int getbyte()
 {
     return mem[pc++];
@@ -108,7 +123,7 @@ int doinst()
 
 void op_nop()
 {
-    printf("NOP\n");
+    info("NOP\n");
 }
 
 void op_ldrimm()
@@ -116,7 +131,7 @@ void op_ldrimm()
     uint8_t imm = (uint8_t)getbyte();
     int r = getbyte();
     regs[r] = imm;
-    printf("LDR $%d, %%r%d\n", imm, r);
+    info("LDR $%d, %%r%d\n", imm, r);
 }
 
 void op_ldrmem()
@@ -124,20 +139,28 @@ void op_ldrmem()
     int src = getbyte();
     int dst = getbyte();
     regs[dst] = mem[(regs[7] << 8) | regs[src]];
-    printf("LDR (%%r%d), %%r%d\n", src, dst);
+    info("LDR (%%r%d), %%r%d\n", src, dst);
 }
 
 void op_str()
 {
     int src = getbyte();
     int dst = getbyte();
-    mem[(regs[7] << 8) | regs[dst]] = regs[src];
-    printf("STR %%r%d, (%%r%d)\n", src, dst);
+
+    if (((regs[7] << 8) | regs[dst]) < 256)
+    {
+        printf("%c", regs[src]);
+        fflush(stdout);
+    }
+    else
+        mem[(regs[7] << 8) | regs[dst]] = regs[src];
+    
+    info("STR %%r%d, (%%r%d)\n", src, dst);
 }
 
 void op_hlt()
 {
-    printf("HLT\n");
+    info("HLT\n");
     for (;;);
 }
 
@@ -147,56 +170,56 @@ void op_mov()
     int dst = getbyte();
 
     regs[dst] = regs[src];
-    printf("MOV %%r%d, %%r%d\n", src, dst);
+    info("MOV %%r%d, %%r%d\n", src, dst);
 }
 
 void op_add()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] += regs[src];
-    printf("ADD %%r%d, %%r%d\n", src, dst);
+    info("ADD %%r%d, %%r%d\n", src, dst);
 }
 
 void op_sub()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] -= regs[src];
-    printf("SUB %%r%d, %%r%d\n", src, dst);
+    info("SUB %%r%d, %%r%d\n", src, dst);
 }
 
 void op_mul()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] *= regs[src];
-    printf("MUL %%r%d, %%r%d\n", src, dst);
+    info("MUL %%r%d, %%r%d\n", src, dst);
 }
 
 void op_div()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] /= regs[src];
-    printf("DIV %%r%d, %%r%d\n", src, dst);
+    info("DIV %%r%d, %%r%d\n", src, dst);
 }
 
 void op_and()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] &= regs[src];
-    printf("AND %%r%d, %%r%d\n", src, dst);
+    info("AND %%r%d, %%r%d\n", src, dst);
 }
 
 void op_or()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] |= regs[src];
-    printf("OR %%r%d, %%r%d\n", src, dst);
+    info("OR %%r%d, %%r%d\n", src, dst);
 }
 
 void op_xor()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] ^= regs[src];
-    printf("XOR %%r%d, %%r%d\n", src, dst);
+    info("XOR %%r%d, %%r%d\n", src, dst);
 }
 
 void op_cmp()
@@ -207,7 +230,7 @@ void op_cmp()
     if (res == 0) flags |= ZF;
     else if (res < 0) flags |= SF;
     
-    printf("CMP %%r%d, %%r%d\n", src, dst);
+    info("CMP %%r%d, %%r%d\n", src, dst);
 }
 
 void op_jz()
@@ -215,7 +238,7 @@ void op_jz()
     uint8_t loc = getbyte();
     if (flags & ZF) pc = loc;
 
-    printf("JZ $%d\n", loc);
+    info("JZ $%d\n", loc);
 }
 
 void op_jnz()
@@ -223,7 +246,7 @@ void op_jnz()
     uint8_t loc = getbyte();
     if (!(flags & ZF)) pc = loc;
 
-    printf("JNZ $%d\n", loc);
+    info("JNZ $%d\n", loc);
 }
 
 void op_js()
@@ -231,7 +254,7 @@ void op_js()
     uint8_t loc = getbyte();
     if (flags & SF) pc = loc;
     
-    printf("JS $%d\n", loc);
+    info("JS $%d\n", loc);
 }
 
 void op_jns()
@@ -239,11 +262,11 @@ void op_jns()
     uint8_t loc = getbyte();
     if (!(flags & SF)) pc = loc;
 
-    printf("JNS $%d\n", loc);
+    info("JNS $%d\n", loc);
 }
 
 void op_jmp()
 {
     pc = (getbyte() << 8) | getbyte();
-    printf("JMP $%d\n", pc);
+    info("JMP $%d\n", pc);
 }
