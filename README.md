@@ -1,6 +1,11 @@
 # vm
 An emulator and assembler for my own 8-bit computer.
 
+## Computer
+ - 64 KB of RAM
+ - 16 KB of ROM
+ - Graphical framebuffer with a resolution of 160x100 with 16 colors
+
 ## Assembler
 
 ### Syntax
