@@ -3,26 +3,10 @@
 #include <string.h>
 #include <stdint.h>
 
-#define REGCNT 8
-#define MEMSIZE 256
+#include <arch.h>
 
-enum OPCODES
-{
-    OP_NOP,
-    OP_LDRIMM,
-    OP_LDRMEM,
-    OP_STR,
-    OP_HLT,
-    OP_MOV,
-    OP_ADD,
-    OP_SUB,
-    OP_MUL,
-    OP_DIV,
-    OP_AND,
-    OP_OR,
-    OP_XOR,
-    OPCNT
-};
+#define REGCNT 8
+#define MEMSIZE 65536
 
 void op_nop();
 void op_ldrimm();
@@ -37,6 +21,12 @@ void op_div();
 void op_and();
 void op_or();
 void op_xor();
+void op_cmp();
+void op_jz();
+void op_jnz();
+void op_js();
+void op_jns();
+void op_jmp();
 
 void (*opfuncs[OPCNT])() =
 {
@@ -52,12 +42,22 @@ void (*opfuncs[OPCNT])() =
     op_div,
     op_and,
     op_or,
-    op_xor
+    op_xor,
+    op_cmp,
+    op_jz,
+    op_jnz,
+    op_js,
+    op_jns,
+    op_jmp
 };
 
 uint8_t regs[REGCNT] = { 0 };
 uint8_t mem[MEMSIZE] = { 0 };
-uint8_t pc = 0;
+uint16_t pc = 0;
+uint8_t flags = 0;
+
+#define ZF (1 << 0)
+#define SF (1 << 1)
 
 int getbyte()
 {
@@ -115,27 +115,24 @@ void op_ldrimm()
 {
     uint8_t imm = (uint8_t)getbyte();
     int r = getbyte();
-    printf("LDR $%d, %%r%d\n", imm, r);
-    
     regs[r] = imm;
+    printf("LDR $%d, %%r%d\n", imm, r);
 }
 
 void op_ldrmem()
 {
     int src = getbyte();
     int dst = getbyte();
+    regs[dst] = mem[(regs[7] << 8) | regs[src]];
     printf("LDR (%%r%d), %%r%d\n", src, dst);
-
-    regs[dst] = mem[regs[src]];
 }
 
 void op_str()
 {
     int src = getbyte();
     int dst = getbyte();
+    mem[(regs[7] << 8) | regs[dst]] = regs[src];
     printf("STR %%r%d, (%%r%d)\n", src, dst);
-
-    mem[regs[dst]] = regs[src];
 }
 
 void op_hlt()
@@ -148,49 +145,105 @@ void op_mov()
 {
     int src = getbyte();
     int dst = getbyte();
-    printf("MOV(%%r%d, %%r%d)\n", src, dst);
 
     regs[dst] = regs[src];
+    printf("MOV %%r%d, %%r%d\n", src, dst);
 }
 
 void op_add()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] += regs[src];
+    printf("ADD %%r%d, %%r%d\n", src, dst);
 }
 
 void op_sub()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] -= regs[src];
+    printf("SUB %%r%d, %%r%d\n", src, dst);
 }
 
 void op_mul()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] *= regs[src];
+    printf("MUL %%r%d, %%r%d\n", src, dst);
 }
 
 void op_div()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] /= regs[src];
+    printf("DIV %%r%d, %%r%d\n", src, dst);
 }
 
 void op_and()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] &= regs[src];
+    printf("AND %%r%d, %%r%d\n", src, dst);
 }
 
 void op_or()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] |= regs[src];
+    printf("OR %%r%d, %%r%d\n", src, dst);
 }
 
 void op_xor()
 {
     int src = getbyte(), dst = getbyte();
     regs[dst] ^= regs[src];
+    printf("XOR %%r%d, %%r%d\n", src, dst);
+}
+
+void op_cmp()
+{
+    int src = getbyte(), dst = getbyte();
+    int8_t res = regs[dst] - regs[src];
+
+    if (res == 0) flags |= ZF;
+    else if (res < 0) flags |= SF;
+    
+    printf("CMP %%r%d, %%r%d\n", src, dst);
+}
+
+void op_jz()
+{
+    uint8_t loc = getbyte();
+    if (flags & ZF) pc = loc;
+
+    printf("JZ $%d\n", loc);
+}
+
+void op_jnz()
+{
+    uint8_t loc = getbyte();
+    if (!(flags & ZF)) pc = loc;
+
+    printf("JNZ $%d\n", loc);
+}
+
+void op_js()
+{
+    uint8_t loc = getbyte();
+    if (flags & SF) pc = loc;
+    
+    printf("JS $%d\n", loc);
+}
+
+void op_jns()
+{
+    uint8_t loc = getbyte();
+    if (!(flags & SF)) pc = loc;
+
+    printf("JNS $%d\n", loc);
+}
+
+void op_jmp()
+{
+    pc = (getbyte() << 8) | getbyte();
+    printf("JMP $%d\n", pc);
 }

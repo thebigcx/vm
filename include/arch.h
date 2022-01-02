@@ -15,5 +15,11 @@ enum OPCODES
     OP_AND,
     OP_OR,
     OP_XOR,
+    OP_CMP,
+    OP_JZ,
+    OP_JNZ,
+    OP_JS,
+    OP_JNS,
+    OP_JMP,
     OPCNT
 };
