@@ -5,9 +5,10 @@
 #include <stdarg.h>
 
 #include <arch.h>
+#include <vm.h>
 
 #define REGCNT 8
-#define MEMSIZE 65536
+#define MEMSIZE 64000
 
 void op_nop();
 void op_ldrimm();
@@ -108,7 +109,13 @@ int main(int argc, char **argv)
 
     memcpy(mem, data, len);
 
-    while (!doinst());
+    gfx_init();
+    while (!doinst())
+    {
+        gfx_update(mem);
+    }
+    gfx_fini();
+
     return 0;
 }
 
