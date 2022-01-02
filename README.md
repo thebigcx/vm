@@ -24,3 +24,4 @@ An emulator and assembler for my own 8-bit computer.
  - ```JNZ imm16``` - Jump if ZF (zero flag) is not set
  - ```JS imm16``` - Jump if SF (sign flag) is set (negative result)
  - ```JNS imm16``` - Jump if SF (sign flag) is not set (positive result)
+ - ```HLT``` - Halt the CPU
