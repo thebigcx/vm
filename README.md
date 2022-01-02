@@ -2,9 +2,6 @@
 An emulator and assembler for my own 8-bit computer.
 
 ## Assembler
- - Similar to AT&T syntax: op src, dst.
- - Registers: %r0 - %r7, %r7 used as "segment" register (upper 8 bits) for 16-bit memory addressing.
- - Flags: ZF - zero flag, SF - sign flag
 
 ### Syntax
 Similar to AT&T syntax:
