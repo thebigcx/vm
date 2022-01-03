@@ -3,12 +3,13 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #include <arch.h>
 #include <vm.h>
 
 #define REGCNT 8
-#define MEMSIZE 64000
+#define MEMSIZE 65536
 
 void op_nop();
 void op_ldrimm();
@@ -82,6 +83,15 @@ int getbyte()
 
 int doinst();
 
+void *renthr_main(void *arg)
+{
+    (void)arg;
+    gfx_init();
+    while (1) gfx_update(mem);
+    gfx_fini();
+    return NULL;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2)
@@ -109,13 +119,10 @@ int main(int argc, char **argv)
 
     memcpy(mem, data, len);
 
-    gfx_init();
-    while (!doinst())
-    {
-        gfx_update(mem);
-    }
-    gfx_fini();
+    pthread_t renthr;
+    pthread_create(&renthr, NULL, renthr_main, NULL);
 
+    while (!doinst());
     return 0;
 }
 

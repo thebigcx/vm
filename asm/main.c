@@ -110,6 +110,7 @@ struct token next()
 
         c = fgetc(input);
         ungetc(c, input);
+        printf("char: %c\n", c);
         if (isalpha(c) || c == '_')
         {
             while ((c = fgetc(input)) != EOF && (isalnum(c) || c == '_')) str[strl++] = c;
@@ -117,6 +118,7 @@ struct token next()
             
             ungetc(c, input);
 
+            printf("lbl: %s\n", str);
             undeflbls = realloc(undeflbls, (undeflblcnt + 1) * sizeof(struct label));
             undeflbls[undeflblcnt++] = (struct label)
             {
@@ -136,12 +138,23 @@ struct token next()
         }
         else
         {
+            int base = 10;
+            if (c == '0')
+            {
+                fgetc(input);
+                c = fgetc(input);
+                printf("c: %c\n", c);
+                if (c != 'x' && c != 'b' && !isdigit(c))
+                    ungetc(c, input);
+                else base = c == 'x' ? 16 : c == 'b' ? 2 : 8;
+            }
+
             while ((c = fgetc(input)) != EOF && isxdigit(c)) str[strl++] = c;
             str[strl] = 0;
             
             ungetc(c, input);
-
-            uint16_t val = strtol(str, NULL, 10);
+            printf("base: %d\n", base);
+            uint16_t val = strtol(str, NULL, base);
             return (struct token) { .type = T_IMM, .ival = val };
         }
     }
@@ -316,6 +329,7 @@ int main(int argc, char **argv)
         }
     }
 
+    printf("undef: %d\n", undeflblcnt);
     for (unsigned int i = 0; i < undeflblcnt; i++)
     {
         fseek(output, undeflbls[i].pos, SEEK_SET);
@@ -330,8 +344,12 @@ int main(int argc, char **argv)
             }
         }
 
+        printf("%s: %d\n", lbl->name, lbl->pos);
         //TODO: assert(lbl);
-        fwrite(&lbl->pos, 1, 1, output);
+        uint8_t poshi = lbl->pos >> 8;
+        uint8_t poslo = lbl->pos & 0xff;
+        fwrite(&poshi, 1, 1, output);
+        fwrite(&poslo, 1, 1, output);
     }
 
     fclose(output);
