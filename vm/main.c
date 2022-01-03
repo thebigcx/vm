@@ -8,8 +8,12 @@
 #include <arch.h>
 #include <vm.h>
 
-#define REGCNT 8
+#define REGCNT 10
 #define MEMSIZE 65536
+
+#define REG_0  0
+#define REG_SP 8
+#define REG_BP 9
 
 void op_nop();
 void op_ldrimm();
@@ -30,6 +34,10 @@ void op_jnz();
 void op_js();
 void op_jns();
 void op_jmp();
+void op_push();
+void op_pop();
+void op_call();
+void op_ret();
 
 void (*opfuncs[OPCNT])() =
 {
@@ -51,11 +59,20 @@ void (*opfuncs[OPCNT])() =
     op_jnz,
     op_js,
     op_jns,
-    op_jmp
+    op_jmp,
+    op_push,
+    op_pop,
+    op_call,
+    op_ret
 };
 
-uint8_t regs[REGCNT] = { 0 };
+uint8_t regs[REGCNT] =
+{
+    [REG_SP] = 0xff,
+    [REG_BP] = 0xff
+};
 uint8_t mem[MEMSIZE] = { 0 };
+uint8_t rom[16384] = { 0 };
 uint16_t pc = 0;
 uint8_t flags = 0;
 
@@ -78,7 +95,7 @@ void info(const char *format, ...)
 
 int getbyte()
 {
-    return mem[pc++];
+    return rom[pc++];
 }
 
 int doinst();
@@ -100,8 +117,8 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    FILE *rom = fopen(argv[1], "r");
-    if (!rom)
+    FILE *romfile = fopen(argv[1], "r");
+    if (!romfile)
     {
         char buf[64];
         snprintf(buf, 64, "vm: %s", argv[1]);
@@ -109,15 +126,15 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    fseek(rom, 0, SEEK_END);
-    size_t len = ftell(rom);
-    fseek(rom, 0, SEEK_SET);
+    fseek(romfile, 0, SEEK_END);
+    size_t len = ftell(romfile);
+    fseek(romfile, 0, SEEK_SET);
 
     uint8_t *data = malloc(len);
-    fread(data, len, 1, rom);
-    fclose(rom);
+    fread(data, len, 1, romfile);
+    fclose(romfile);
 
-    memcpy(mem, data, len);
+    memcpy(rom, data, len);
 
     pthread_t renthr;
     pthread_create(&renthr, NULL, renthr_main, NULL);
@@ -133,6 +150,28 @@ int doinst()
 
     opfuncs[opcode]();
     return 0;
+}
+
+void stck_push8(uint8_t v)
+{
+    mem[0x100 + regs[REG_SP]--] = v;
+}
+
+void stck_push16(uint16_t v)
+{
+    ((uint16_t*)mem)[0x100 + regs[REG_SP]] = v;
+    regs[REG_SP] -= 2;
+}
+
+void stck_pop8(uint8_t *v)
+{
+    *v = mem[0x100 + ++regs[REG_SP]];
+}
+
+void stck_pop16(uint16_t *v)
+{
+    regs[REG_SP] += 2;
+    *v = ((uint16_t*)mem)[0x100 + regs[REG_SP]];
 }
 
 void op_nop()
@@ -286,4 +325,37 @@ void op_jmp()
 {
     pc = (getbyte() << 8) | getbyte();
     info("JMP $%d\n", pc);
+}
+
+void op_push()
+{
+    int r = getbyte();
+    stck_push8(regs[r]);
+    info("PUSH %%r%d\n", r);
+}
+
+void op_pop()
+{
+    int r = getbyte();
+    stck_pop8(&regs[r]);
+    info("POP %%r%d\n", r);
+}
+
+void op_call()
+{
+    uint16_t loc = (getbyte() << 8) | getbyte();
+    
+    stck_push16(pc);
+    stck_push8(regs[REG_BP]);
+
+    pc = loc;
+    info("CALL $%d\n", loc);
+}
+
+void op_ret()
+{
+    stck_pop8(&regs[REG_BP]);
+    stck_pop16(&pc);
+
+    info("RET\n");
 }

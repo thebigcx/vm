@@ -21,5 +21,9 @@ enum OPCODES
     OP_JS,
     OP_JNS,
     OP_JMP,
+    OP_PUSH,
+    OP_POP,
+    OP_CALL,
+    OP_RET,
     OPCNT
 };

@@ -27,6 +27,10 @@ enum TOKEN
     T_JS,
     T_JNS,
     T_JMP,
+    T_PUSH,
+    T_POP,
+    T_CALL,
+    T_RET,
     T_DIRECT,
     T_STRLIT,
     T_LBL,
@@ -45,23 +49,27 @@ unsigned int lblcnt = 0, undeflblcnt = 0;
 
 const char *insts[] =
 {
-    [T_LDR] = "ldr",
-    [T_STR] = "str",
-    [T_MOV] = "mov",
-    [T_HLT] = "hlt",
-    [T_ADD] = "add",
-    [T_SUB] = "sub",
-    [T_MUL] = "mul",
-    [T_DIV] = "sub",
-    [T_AND] = "and",
-    [T_OR]  = "or",
-    [T_XOR] = "xor",
-    [T_CMP] = "cmp",
-    [T_JZ]  = "jz",
-    [T_JNZ] = "jnz",
-    [T_JS]  = "js",
-    [T_JNS] = "jns",
-    [T_JMP] = "jmp"
+    [T_LDR]  = "ldr",
+    [T_STR]  = "str",
+    [T_MOV]  = "mov",
+    [T_HLT]  = "hlt",
+    [T_ADD]  = "add",
+    [T_SUB]  = "sub",
+    [T_MUL]  = "mul",
+    [T_DIV]  = "sub",
+    [T_AND]  = "and",
+    [T_OR]   = "or",
+    [T_XOR]  = "xor",
+    [T_CMP]  = "cmp",
+    [T_JZ]   = "jz",
+    [T_JNZ]  = "jnz",
+    [T_JS]   = "js",
+    [T_JNS]  = "jns",
+    [T_JMP]  = "jmp",
+    [T_PUSH] = "push",
+    [T_POP]  = "pop",
+    [T_CALL] = "call",
+    [T_RET]  = "ret"
 };
 
 struct token
@@ -161,9 +169,23 @@ struct token next()
     else if (c == '%')
     {
         // Register
-        fgetc(input); // TODO: expect 'r'
-        c = fgetc(input);
-        int num = c - '0';
+        
+        char str[32];
+        size_t strl = 0;
+
+        while ((c = fgetc(input)) != EOF && isalnum(c)) str[strl++] = c;
+        ungetc(c, input);
+
+        str[strl] = 0;
+
+        int num;
+        if (!strcmp(str, "sp"))
+            num = 8;
+        else if (!strcmp(str, "bp"))
+            num = 9;
+        else
+            num = str[1] - '0';
+
         return (struct token) { .type = T_REG, .ival = num };
     }
     else if (c == '"')
@@ -172,6 +194,7 @@ struct token next()
         size_t strl = 0;
 
         while ((c = fgetc(input)) != EOF && c != '"') str[strl++] = c;
+        str[strl] = 0;
         fgetc(input);
 
         return (struct token) { .type = T_STRLIT, .sval = strdup(str) };
@@ -283,26 +306,28 @@ int main(int argc, char **argv)
                 fputc(dst.ival, output);
                 break;
             }
-            case T_HLT:
-            {
-                fputc(OP_HLT, output);
-                break;
-            }
-            case T_STR: instreg2(OP_STR); break;
-            case T_ADD: instreg2(OP_ADD); break;
-            case T_SUB: instreg2(OP_SUB); break;
-            case T_MUL: instreg2(OP_MUL); break;
-            case T_DIV: instreg2(OP_DIV); break;
-            case T_AND: instreg2(OP_AND); break;
-            case T_OR:  instreg2(OP_OR);  break;
-            case T_XOR: instreg2(OP_XOR); break;
-            case T_CMP: instreg2(OP_CMP); break;
+            case T_HLT:  fputc(OP_HLT, output); break;
+            case T_RET:  fputc(OP_RET, output); break;
             
-            case T_JZ:  instjmp(OP_JZ);  break;
-            case T_JNZ: instjmp(OP_JNZ); break;
-            case T_JS:  instjmp(OP_JS);  break;
-            case T_JNS: instjmp(OP_JNS); break;
-            case T_JMP: instjmp(OP_JMP); break;
+            case T_STR:  instreg2(OP_STR);  break;
+            case T_ADD:  instreg2(OP_ADD);  break;
+            case T_SUB:  instreg2(OP_SUB);  break;
+            case T_MUL:  instreg2(OP_MUL);  break;
+            case T_DIV:  instreg2(OP_DIV);  break;
+            case T_AND:  instreg2(OP_AND);  break;
+            case T_OR:   instreg2(OP_OR);   break;
+            case T_XOR:  instreg2(OP_XOR);  break;
+            case T_CMP:  instreg2(OP_CMP);  break;
+            case T_PUSH: instreg1(OP_PUSH); break;
+            case T_POP:  instreg1(OP_POP);  break;
+            
+            case T_JZ:   instjmp(OP_JZ);   break;
+            case T_JNZ:  instjmp(OP_JNZ);  break;
+            case T_JS:   instjmp(OP_JS);   break;
+            case T_JNS:  instjmp(OP_JNS);  break;
+            case T_JMP:  instjmp(OP_JMP);  break;
+            case T_CALL: instjmp(OP_CALL); break;
+
             
             case T_LBL:
             {
