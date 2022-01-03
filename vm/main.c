@@ -168,7 +168,10 @@ void op_str()
 void op_hlt()
 {
     info("HLT\n");
-    for (;;);
+    for (;;)
+    {
+        gfx_update(mem);
+    }
 }
 
 void op_mov()

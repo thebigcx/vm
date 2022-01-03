@@ -1,8 +1,7 @@
 SRC = $(wildcard *.c)
 OBJ = $(patsubst %.c, %.o, $(SRC))
 
-CFLAGS = -Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -I../include
-LDFLAGS =
+CFLAGS := -Wall -Wextra -Werror=implicit-function-declaration -Wno-unused-function -g -I../include
 
 .PHONY: all clean
 
